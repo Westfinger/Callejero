@@ -354,7 +354,10 @@ function updLabels(){raf=0;const s=view.s;svg.style.setProperty('--minw',(1.8/s)
   gSL.style.fontSize=fsS+'px'; gSL.style.strokeWidth=(3/s)+'px';
   const showStreets=labelsOn()||mode==='conquista';
   const charW=fsS*0.56;
-  for(const c of CALLES){const need=c.ln.length*charW*0.98; const ok=showStreets&&(mode!=='conquista'||(conq&&conq.R.has(c.i)))&&true&&(s>0.33||c.major&&s>0.16);for(const e of c.els)e.style.display=ok&&e._seg>=need?'':'none';}
+  const vr=svg.getBoundingClientRect(),cx0=-view.x/s-200,cy0=-view.y/s-200,cx1=cx0+vr.width/s+400,cy1=cy0+vr.height/s+400;
+  for(const c of CALLES){if(!c.bb){let a=1e9,b=1e9,cc=-1e9,d=-1e9;for(const p of c.l.concat(c.a))for(const q of p){a=Math.min(a,q[0]);b=Math.min(b,q[1]);cc=Math.max(cc,q[0]);d=Math.max(d,q[1]);}c.bb=[a,b,cc,d];}
+    if(c.bb[2]<cx0||c.bb[0]>cx1||c.bb[3]<cy0||c.bb[1]>cy1){if(c._vis!==false){for(const e of c.els)e.style.display='none';c._vis=false;}continue;}
+    c._vis=true;const need=c.ln.length*charW*0.98; const ok=showStreets&&(mode!=='conquista'||(conq&&conq.R.has(c.i)))&&true&&(s>0.33||c.major&&s>0.16);for(const e of c.els)e.style.display=ok&&e._seg>=need?'':'none';}
   const fb=11/s; gBL.style.fontSize=fb+'px'; gBL.style.strokeWidth=(4/s)+'px';
   const near=s>=0.55, hideNames=mode==='barrios'||(mode==='rellenar'&&!fill.showB);
   for(const b of BARRIOS){b.el.style.display=(mode!=='conquista'||(conq&&conq.wonShown&&conq.wonShown.has(b.i)))&&!hideNames&&(!near||!b.subs.length)&&b.n.length*fb*0.7<b.w?'':'none';}
@@ -367,7 +370,7 @@ function updLabels(){raf=0;const s=view.s;svg.style.setProperty('--minw',(1.8/s)
   gPL.style.fontSize=fP+'px'; gPL.style.strokeWidth=(3/s)+'px';
   const placed=[];const PR=['bic','monumento','museo','iglesia','estatua','fuente','edificio'];
   const r0=svg.getBoundingClientRect(),vx0=-view.x/s,vy0=-view.y/s,vx1=vx0+r0.width/s,vy1=vy0+r0.height/s;
-  for(const q of POIS){const vis=!hideP&&pShow[q.c]&&s>=PCAT[q.c][2];q.el.style.display=vis?'':'none';q._v=vis;
+  for(const q of POIS){const vis=!hideP&&pShow[q.c]&&s>=PCAT[q.c][2]&&q.p[0]>vx0&&q.p[0]<vx1&&q.p[1]>vy0&&q.p[1]<vy1;q.el.style.display=vis?'':'none';q._v=vis;
     if(vis)q.el.setAttribute('transform',`translate(${q.p[0]},${q.p[1]}) scale(${ks})`);q.tl.style.display='none';}
   if(showPL){const cand=POIS.filter(q=>q._v&&s>=(q.c==='bic'?1.1:q.c==='edificio'?2.6:1.6)&&q.p[0]>vx0&&q.p[0]<vx1&&q.p[1]>vy0&&q.p[1]<vy1).sort((a,b)=>PR.indexOf(a.c)-PR.indexOf(b.c));
     for(const q of cand){const x0=q.p[0]+8/s,w=q.n.length*fP*0.55,h=fP*1.1,box=[x0,q.p[1]-h/2,x0+w,q.p[1]+h/2];
@@ -892,7 +895,7 @@ function initResc(){
     <div class="row" style="margin-top:12px"><button class="btn" id="rgo">Empezar</button></div>
     <div class="hint" style="margin-top:10px">Mejor puntuación: <b>${rescBest()}</b></div>`;
   $('rarw').onchange=e=>{resc.arrows=e.target.checked;setT();};
-  $('rgo').onclick=newFire; fit(); setT();
+  $('rgo').onclick=()=>newFire(); fit(); setT();
 }
 const rescBest=()=>{try{return +localStorage.getItem('callejero-resc-best')||0;}catch(e){return 0;}};
 function drawStations(){
@@ -905,12 +908,12 @@ function dijkstra(src,dst,arcsOf){const dist=new Map([[src,0]]),prev=new Map(),h
     for(const a of arcsOf(u)){const nd=d+a.t;if(nd<(dist.get(a.to)??Infinity)){dist.set(a.to,nd);prev.set(a.to,a);heapPush(h,[nd,a.to]);}}}
   if(!dist.has(dst))return null;const path=[];let v=dst;while(v!==src){const a=prev.get(v);path.push(a);v=a.from;}return {t:dist.get(dst),path:path.reverse()};}
 function withFrom(list,u){return list.map(a=>(a.from=u,a));}
-function newFire(){
+function newFire(forceEi,restoring){
   if(resc.restore)resc.restore();
   gRT.innerHTML='';
   const E=RG.E;let tries=0;
-  while(tries++<400){
-    const ei=Math.floor(Math.random()*E.length),e=E[ei];const c=e[3];
+  while(tries++<(forceEi!==undefined?1:400)){
+    const ei=forceEi!==undefined?forceEi:Math.floor(Math.random()*E.length),e=E[ei];const c=e[3];
     if(c<0||e[2]<45||e[2]>600)continue;const cs=CALLES[c];if(cs.b<0||cs.k==='track'||cs.k==='trunk')continue;
     // nodo virtual en la mitad de la arista
     const pts=edgePts(e);let L=0;const seg=[];for(let i=1;i<pts.length;i++){seg.push(Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));L+=seg[seg.length-1];}
@@ -927,11 +930,13 @@ function newFire(){
     const restore=()=>{RG.out[A]=saveOutA;RG.out[B]=saveOutB;RG.und[A]=saveUA;RG.und[B]=saveUB;RG.N.pop();RG.out.pop();RG.und.pop();};
     const opt=DATA.stations.map(st=>dijkstra(st.node,f,u=>withFrom(RG.out[u],u)));
     if(opt.some(o=>!o||o.t>900)||Math.abs(opt[0].t-opt[1].t)<5){restore();continue;}
-    resc={...resc,phase:'station',fire:{node:f,p:fp,c},opt,restore,st:-1,seq:[],err:0};
+    resc={...resc,phase:'station',fire:{node:f,p:fp,c},opt,restore,st:-1,seq:[],err:0,ei};
     drawStations();
+    if(!restoring){
     const R=wrap.getBoundingClientRect();let x0=fp[0],x1=fp[0],y0=fp[1],y1=fp[1];DATA.stations.forEach(s=>{x0=Math.min(x0,s.p[0]);x1=Math.max(x1,s.p[0]);y0=Math.min(y0,s.p[1]);y1=Math.max(y1,s.p[1]);});
     view.s=Math.min(R.width/(x1-x0+600),R.height/(y1-y0+600));view.x=R.width/2-(x0+x1)/2*view.s;view.y=R.height/2-(y0+y1)/2*view.s;setT();
     toast('🚨 ¡Aviso de incendio! Mira el mapa');
+    }
     drawRescPanel();return;
   }
   toast('No he podido generar un incendio, inténtalo de nuevo');
@@ -1058,7 +1063,38 @@ function animateTruck(path){
   const _sm=setSheet;
 })();
 if(navigator.serviceWorker&&(location.protocol==='https:'||location.hostname==='localhost')){try{navigator.serviceWorker.register('sw.js').catch(()=>{});}catch(e){}}
-render();setSheet('mid');fit();setMode('explorar');
+// ---------- guardado automático del estado (iOS cierra las apps en segundo plano) ----------
+const SKEY='callejero-state-v1';
+function saveState(){try{
+  const r=visR();const st={mode,cfg,pShow,view:[(r.width/2-view.x)/view.s,(r.height/2-view.y)/view.s,view.s],t:Date.now()};
+  if((mode==='calles'||mode==='barrios')&&game&&game.i<game.queue.length)st.game={queue:game.queue,i:game.i,pts:game.pts,m:mode};
+  if(mode==='rellenar')st.fill={barrio:fill.barrio,showB:fill.showB};
+  if(mode==='conquista'&&conq&&!conq.over)st.conq={start:conq.start,R:[...conq.R],lives:conq.lives,pts:conq.pts,won:[...conq.won],fails:conq.fails};
+  if(mode==='rescate'&&resc&&resc.fire&&resc.phase!=='done')st.resc={ei:resc.ei,st:resc.st,seq:resc.seq,err:resc.err,arrows:resc.arrows};
+  localStorage.setItem(SKEY,JSON.stringify(st));}catch(e){}}
+function restoreState(){
+  let st=null;try{st=JSON.parse(localStorage.getItem(SKEY)||'null');}catch(e){}
+  if(!st||Date.now()-st.t>7*864e5){setMode('explorar');return;}
+  try{
+    Object.assign(cfg,st.cfg||{});if(st.pShow)Object.assign(pShow,st.pShow);
+    const m=st.mode;
+    if(m==='calles'||m==='barrios'){setMode('calles');
+      if(st.game){mode=st.game.m;game={queue:st.game.queue,i:st.game.i,pts:st.game.pts,answered:false};$('scorecard').style.display='';showBest();
+        if(mode==='calles'&&cfg.barrio>=0)setZoneClip(cfg.barrio);nextQ();}}
+    else if(m==='rellenar'){if(st.fill){fill.barrio=st.fill.barrio;fill.showB=!!st.fill.showB;}setMode('rellenar');}
+    else if(m==='conquista'){setMode('conquista');
+      if(st.conq){startConq(st.conq.start);conq.R=new Set(st.conq.R);conq.lives=st.conq.lives;conq.pts=st.conq.pts;conq.won=new Set(st.conq.won);conq.wonShown=new Set(st.conq.won);conq.fails=st.conq.fails;drawConq();}}
+    else if(m==='rescate'){setMode('rescate');
+      if(st.resc){resc.arrows=st.resc.arrows!==false;newFire(st.resc.ei,true);
+        if(resc.fire&&st.resc.st>=0){pickStation(st.resc.st);resc.seq=st.resc.seq||[];resc.err=st.resc.err||0;rescRedraw();drawRescPanel();}}}
+    else setMode('explorar');
+    if(st.view){const r=visR();view.s=st.view[2];view.x=r.width/2-st.view[0]*view.s;view.y=r.height/2-st.view[1]*view.s;setT();}
+  }catch(e){setMode('explorar');}
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveState();});
+window.addEventListener('pagehide',saveState);
+setInterval(saveState,4000);
+render();setSheet('mid');fit();restoreState();
 </script>
 </body>
 </html>
